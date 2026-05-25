@@ -779,7 +779,7 @@ function updateRadarTooltip(tooltip, point, tooltipId) {
   tooltip.innerHTML = `
     <img alt="" src="${source.favicon}" />
     <span>${escapeHtml(source.label)}</span>
-    <small>${point.failed ? "failed" : `${point.count} found`}</small>
+    <small>${point.failed ? "failed" : point.count ? `${point.count} found` : "not found"}</small>
   `;
 }
 
