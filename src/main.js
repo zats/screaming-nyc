@@ -94,12 +94,18 @@ let state = {
   error: ""
 };
 let activeScan = 0;
+let lastOpenRefreshAt = 0;
 let radarFrame = 0;
 let radarPoints = [];
 const geocodeCache = new Map();
 
 render();
-autoLocateOrScan();
+registerServiceWorker();
+refreshLocationAndData();
+window.addEventListener("pageshow", refreshLocationAndData);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshLocationAndData();
+});
 
 function render() {
   const topGuess = getTopGuess();
@@ -201,6 +207,20 @@ async function autoLocateOrScan() {
   requestLocation({ showDenied: false });
 }
 
+function refreshLocationAndData() {
+  const now = Date.now();
+  if (now - lastOpenRefreshAt < 1500) return;
+  lastOpenRefreshAt = now;
+  autoLocateOrScan();
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js");
+  });
+}
+
 function requestLocation({ showDenied }) {
   if (!navigator.geolocation) {
     state.error = "Geolocation unavailable.";
@@ -227,7 +247,7 @@ function requestLocation({ showDenied }) {
       state.hasUserLocation = false;
       scan();
     },
-    { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 }
   );
 }
 
