@@ -16,12 +16,42 @@ const BOROUGHS = [
 ];
 
 const RADAR_SOURCES = {
-  noise311: { label: "NYC 311", domain: "nyc.gov", color: "#111" },
-  sports: { label: "ESPN sports", domain: "espn.com", color: "#555" },
-  eventbrite: { label: "Eventbrite", domain: "eventbrite.com", color: "#777" },
-  songkick: { label: "Songkick", domain: "songkick.com", color: "#8b8b8b" },
-  ticketmaster: { label: "Ticketmaster", domain: "ticketmaster.com", color: "#666" },
-  permits: { label: "NYC permits", domain: "nyc.gov", color: "#999" }
+  noise311: {
+    label: "NYC 311",
+    domain: "nyc.gov",
+    favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
+    color: "#052c4b"
+  },
+  sports: {
+    label: "ESPN sports",
+    domain: "espn.com",
+    favicon: "https://www.google.com/s2/favicons?domain=espn.com&sz=32",
+    color: "#760e12"
+  },
+  eventbrite: {
+    label: "Eventbrite",
+    domain: "eventbrite.com",
+    favicon: "https://www.eventbrite.com/favicon.ico",
+    color: "#802f18"
+  },
+  songkick: {
+    label: "Songkick",
+    domain: "songkick.com",
+    favicon: "https://assets.sk-static.com/images/favicon.ico",
+    color: "#800b3c"
+  },
+  ticketmaster: {
+    label: "Ticketmaster",
+    domain: "ticketmaster.com",
+    favicon: "https://www.google.com/s2/favicons?domain=ticketmaster.com&sz=32",
+    color: "#013670"
+  },
+  permits: {
+    label: "NYC permits",
+    domain: "nyc.gov",
+    favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
+    color: "#052c4b"
+  }
 };
 
 const app = document.querySelector("#app");
@@ -454,7 +484,7 @@ function drawRadar() {
     tooltip.style.left = `${(point.x / width) * rect.width}px`;
     tooltip.style.top = `${(point.y / height) * rect.height}px`;
     tooltip.innerHTML = `
-      <img alt="" src="${faviconUrl(source.domain)}" />
+      <img alt="" src="${source.favicon}" />
       <span>${escapeHtml(source.label)}</span>
       <small>${point.failed ? "failed" : `${point.count} found`}</small>
     `;
@@ -517,10 +547,6 @@ function sourcePoint(dot, index, total, time) {
     x: 260 + Math.cos(angle) * radius * appear,
     y: 140 + Math.sin(angle) * radius * 0.72 * appear
   };
-}
-
-function faviconUrl(domain) {
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
 }
 
 function boundingBox(lat, lon, miles) {
