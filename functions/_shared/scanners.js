@@ -90,6 +90,7 @@ function mapSportEvent(league, event, lat, lon, radius) {
       title: event.shortName || event.name || `${away} at ${home}`,
       type: "Sports",
       time: event.date,
+      endTime: eventEndTime(event.date, "Sports"),
       place: eventVenue.name,
       source: `ESPN ${league}`,
       url: event.links?.[0]?.href || sportUrl(league),
@@ -113,12 +114,14 @@ async function scanEventbrite(lat, lon, radius) {
     if (distance > radius) return [];
 
     const time = eventDateTime(event.start_date, event.start_time);
+    const endTime = eventDateTime(event.end_date || event.start_date, event.end_time);
     if (!isNearNow(time)) return [];
 
     return {
       title: event.name,
       type: event.tags?.find((tag) => tag.prefix === "EventbriteCategory")?.display_name || "Event",
       time,
+      endTime,
       place: venue.name || venue.address?.localized_address_display || "Nearby",
       source: "Eventbrite",
       url: event.url,
@@ -145,6 +148,7 @@ async function scanSongkick(lat, lon, radius) {
       title: item.name,
       type: "Concert",
       time,
+      endTime: eventEndTime(time, "Concert"),
       place: item.location?.name || "Nearby",
       source: "Songkick",
       url: item.url,
@@ -194,6 +198,7 @@ function mapTicketmasterEvent(event, lat, lon, radius) {
     title: event.title,
     type: "Ticketed event",
     time,
+    endTime: eventEndTime(time, "Ticketed event"),
     place: event.venue?.name || "Nearby",
     source: "Ticketmaster",
     url: event.url,
@@ -277,6 +282,13 @@ function requestHeaders() {
 
 function eventDateTime(date, time) {
   return `${date}T${time || "00:00"}:00`;
+}
+
+function eventEndTime(start, type) {
+  const startMs = new Date(start).getTime();
+  if (!Number.isFinite(startMs)) return "";
+  const hours = type === "Sports" ? 3.5 : 4;
+  return new Date(startMs + hours * 60 * 60 * 1000).toISOString();
 }
 
 function parseLocalDate(value) {

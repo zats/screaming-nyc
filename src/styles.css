@@ -262,7 +262,18 @@ canvas {
   background: #ededeb;
 }
 
-.row span,
+.row-title {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.row .row-title span {
+  color: #8a8a86;
+  font-size: 13px;
+}
+
 .muted,
 .error,
 small {

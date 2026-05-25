@@ -320,6 +320,7 @@ async function fetchPermittedEvents(location) {
     title: item.event_name || item.event_type,
     type: item.event_type,
     time: item.start_date_time,
+    endTime: item.end_date_time,
     place: item.event_location || borough,
     source: item.event_agency || "NYC permit",
     url: "https://data.cityofnewyork.us/resource/tvpp-9vvx.json"
@@ -391,8 +392,10 @@ function renderReasonGroup(title, rows) {
         .map(
           (row) => `
         <a class="row" href="${escapeHtml(row.url)}" target="_blank" rel="noreferrer">
-          <strong>${escapeHtml(row.title)}</strong>
-          <span>${escapeHtml(formatTime(row.time))}</span>
+          <div class="row-title">
+            <strong>${escapeHtml(row.title)}</strong>
+            <span>${escapeHtml(formatEventTiming(row))}${renderDistance(row)}</span>
+          </div>
           <small>${escapeHtml(row.place)} · ${escapeHtml(row.source)}${renderLikelihood(row)}</small>
         </a>
       `
@@ -405,6 +408,10 @@ function renderReasonGroup(title, rows) {
 function renderLikelihood(row) {
   if (!Number.isFinite(row.distance) && row.source !== "311") return "";
   return ` · ${Math.round(likelihoodScore(row))}% likely`;
+}
+
+function renderDistance(row) {
+  return Number.isFinite(row.distance) ? ` · ${distanceLabel(row)}` : "";
 }
 
 function sourceCard(title, status, body, source) {
@@ -586,6 +593,44 @@ function eventTimingLabel(row) {
   if (hours < -0.25) return "starting soon";
   if (hours < 3.5) return "happening now";
   return "probably letting out";
+}
+
+function formatEventTiming(row) {
+  const start = row.time ? new Date(row.time).getTime() : NaN;
+  if (!Number.isFinite(start)) return "time unknown";
+
+  const now = Date.now();
+  if (now < start) return `in ${formatDuration(start - now)}`;
+
+  const end = eventEndMs(row);
+  if (Number.isFinite(end) && now <= end) return `${formatDuration(end - now)} to go`;
+
+  return "ended";
+}
+
+function eventEndMs(row) {
+  const explicit = row.endTime ? new Date(row.endTime).getTime() : NaN;
+  if (Number.isFinite(explicit)) return explicit;
+
+  const start = row.time ? new Date(row.time).getTime() : NaN;
+  if (!Number.isFinite(start)) return NaN;
+
+  const hours =
+    row.source === "311" ? 0 :
+    row.type === "Sports" ? 3.5 :
+    /concert|music|ticketed|party|festival|auto|boat|air/i.test(`${row.type} ${row.source}`) ? 4 :
+    2;
+
+  return start + hours * 60 * 60 * 1000;
+}
+
+function formatDuration(ms) {
+  const minutes = Math.max(0, Math.round(ms / 60000));
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = minutes / 60;
+  if (hours < 10) return `${Math.round(hours * 10) / 10}h`;
+  return `${Math.round(hours)}h`;
 }
 
 function distanceLabel(row) {
