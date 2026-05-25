@@ -675,7 +675,7 @@ function drawCallout(ctx, tooltip, point, canvas) {
   const startX = (tooltipRect.right - canvasRect.left) * scaleX;
   const startY = (tooltipRect.top + tooltipRect.height / 2 - canvasRect.top) * scaleY;
 
-  ctx.strokeStyle = "#111";
+  ctx.strokeStyle = "#c6c6bf";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(startX, startY);

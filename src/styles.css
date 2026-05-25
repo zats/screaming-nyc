@@ -136,14 +136,14 @@ canvas {
 
 .radar-tooltip {
   align-items: center;
-  background: #111;
+  background: #c6c6bf;
   border-radius: 4px;
-  color: #fff;
+  color: #111;
   display: flex;
-  gap: 6px;
+  gap: 3px;
   left: 14px;
   max-width: 180px;
-  padding: 6px 8px;
+  padding: 3px 4px;
   pointer-events: none;
   position: absolute;
   bottom: 14px;
@@ -157,18 +157,18 @@ canvas {
 .radar-tooltip img {
   background: #fff;
   border-radius: 2px;
-  height: 14px;
-  width: 14px;
+  height: 7px;
+  width: 7px;
 }
 
 .radar-tooltip span {
-  font-size: 12px;
+  font-size: 10px;
   white-space: nowrap;
 }
 
 .radar-tooltip small {
-  color: #cfcfca;
-  font-size: 11px;
+  color: #666;
+  font-size: 9px;
   white-space: nowrap;
 }
 
