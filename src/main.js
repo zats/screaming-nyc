@@ -17,66 +17,75 @@ const BOROUGHS = [
   { label: "Bronx", lat: 40.8448, lon: -73.8648 }
 ];
 
+const SOURCE_CATEGORIES = {
+  noise311: { initial: "3", color: "#D82233" },
+  ticketed: { initial: "E", color: "#9A38A1" },
+  sports: { initial: "S", color: "#F6BC26" },
+  city: { initial: "C", color: "#009952" },
+  alerts: { initial: "A", color: "#0062CF" },
+  transit: { initial: "M", color: "#7C858C" }
+};
+
 const RADAR_SOURCES = {
   noise311: {
     label: "NYC 311",
     domain: "nyc.gov",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
-    color: sourceColorForKey("311")
+    category: "noise311"
   },
   sports: {
     label: "ESPN sports",
     domain: "espn.com",
     favicon: "https://www.google.com/s2/favicons?domain=espn.com&sz=32",
-    color: sourceColorForKey("sports")
+    category: "sports"
   },
   eventbrite: {
     label: "Eventbrite",
     domain: "eventbrite.com",
     favicon: "https://www.eventbrite.com/favicon.ico",
-    color: sourceColorForKey("ticketed")
+    category: "ticketed"
   },
   songkick: {
     label: "Songkick",
     domain: "songkick.com",
     favicon: "https://assets.sk-static.com/images/favicon.ico",
-    color: sourceColorForKey("ticketed")
+    category: "ticketed"
   },
   ticketmaster: {
     label: "Ticketmaster",
     domain: "ticketmaster.com",
     favicon: "https://www.google.com/s2/favicons?domain=ticketmaster.com&sz=32",
-    color: sourceColorForKey("ticketed")
+    category: "ticketed"
   },
   seatgeek: {
     label: "SeatGeek",
     domain: "seatgeek.com",
     favicon: "https://www.google.com/s2/favicons?domain=seatgeek.com&sz=32",
-    color: sourceColorForKey("ticketed")
+    category: "ticketed"
   },
   permits: {
     label: "NYC permits",
     domain: "nyc.gov",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
-    color: sourceColorForKey("city")
+    category: "city"
   },
   notify: {
     label: "Notify NYC",
     domain: "nyc.gov",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
-    color: sourceColorForKey("notify")
+    category: "alerts"
   },
   mta: {
     label: "MTA alerts",
     domain: "mta.info",
     favicon: "https://www.google.com/s2/favicons?domain=mta.info&sz=32",
-    color: sourceColorForKey("mta")
+    category: "transit"
   },
   venues: {
     label: "Venue calendars",
     domain: "nyc.com",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.com&sz=32",
-    color: sourceColorForKey("ticketed")
+    category: "city"
   }
 };
 
@@ -113,7 +122,6 @@ function render() {
     <section class="shell">
       <header class="station-sign">
         <div class="sign-kicker">
-          <span>I'm screamin' here!</span>
           <span class="route-bullets" aria-hidden="true">
             <b class="route route-grey">S</b>
             <b class="route route-yellow">N</b>
@@ -121,6 +129,7 @@ function render() {
           </span>
         </div>
         <h1><span>Screaming</span><span>New York</span></h1>
+        <p class="tagline">I'm screamin' here!</p>
       </header>
 
       <section class="hero">
@@ -132,6 +141,7 @@ function render() {
           <p class="label"><span class="arrow">To</span> Best guess near ${escapeHtml(state.location.label)}</p>
           <h2>${escapeHtml(topGuess.title)}</h2>
           <p>${escapeHtml(topGuess.reason)}</p>
+          ${renderSignalPreview()}
           <div class="stats">
             <span>${state.reports.length} noise reports</span>
             <span>${state.sports.length} sports</span>
@@ -149,7 +159,7 @@ function render() {
 
       <section class="panel">
         <div class="panel-head">
-          <h3><span class="arrow">At</span> Screaming reasons</h3>
+          <h3>Screaming reasons</h3>
           <button id="refresh" class="icon-button ${state.status === "loading" ? "is-spinning" : ""}" aria-label="${state.status === "loading" ? "Scanning" : "Refresh"}" title="${state.status === "loading" ? "Scanning" : "Refresh"}">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.45 10.9h-2.18A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h8V3z"/>
@@ -163,13 +173,13 @@ function render() {
       </section>
 
       <section class="sources">
-        <h3>Sources to keep</h3>
+        <h3>Data sources</h3>
         <div class="source-grid">
-          ${sourceCard("311 noise", "Live-ish", "Best immediate signal: clustered recent complaints.", "Official NYC Open Data")}
-          ${sourceCard("Ticketed events", "Always on", "Searches broad event feeds for shows nearby now.", "Eventbrite, Songkick, Ticketmaster, SeatGeek")}
-          ${sourceCard("Sports", "Always on", "Checks same-day public scoreboards for NYC teams.", "ESPN scoreboard JSON")}
-          ${sourceCard("City alerts", "Context", "Emergency, transit, and planned activity signals.", "Notify NYC, MTA, NYC CECM")}
-          ${sourceCard("Venue calendars", "Context", "Direct calendars for major NYC venues.", "MSG, Barclays, Apollo, Lincoln Center, clubs")}
+          ${sourceCard("311 noise", "Live-ish", "Best immediate signal: clustered recent complaints.", "Official NYC Open Data", "noise311")}
+          ${sourceCard("Ticketed events", "Always on", "Searches broad event feeds for shows nearby now.", "Eventbrite, Songkick, Ticketmaster, SeatGeek", "ticketed")}
+          ${sourceCard("Sports", "Always on", "Checks same-day public scoreboards for NYC teams.", "ESPN scoreboard JSON", "sports")}
+          ${sourceCard("City alerts", "Context", "Emergency, transit, and planned activity signals.", "Notify NYC, MTA, NYC CECM", "alerts")}
+          ${sourceCard("Venue calendars", "Context", "Direct calendars for major NYC venues.", "MSG, Barclays, Apollo, Lincoln Center, clubs", "city")}
         </div>
       </section>
     </section>
@@ -535,9 +545,7 @@ function getTopGuess() {
 }
 
 function renderEvidence() {
-  const rows = [...state.reports, ...state.sports, ...state.ticketedEvents, ...state.permits, ...state.contextEvents]
-    .sort(compareRows)
-    .slice(0, 16);
+  const rows = rankedRows(16);
   if (state.status === "loading") return `<p class="muted">Scanning nearby sources...</p>`;
   if (!rows.length) return `<p class="muted">No nearby live evidence found.</p>`;
 
@@ -547,6 +555,30 @@ function renderEvidence() {
   return `
     ${renderReasonGroup("More likely", likely)}
     ${renderReasonGroup("Less likely", lessLikely)}
+  `;
+}
+
+function rankedRows(limit) {
+  return [...state.reports, ...state.sports, ...state.ticketedEvents, ...state.permits, ...state.contextEvents]
+    .sort(compareRows)
+    .slice(0, limit);
+}
+
+function renderSignalPreview() {
+  const rows = rankedRows(3);
+  if (state.status === "loading") return `<div class="signal-preview"><span>Scanning sources</span></div>`;
+  if (!rows.length) return "";
+
+  return `
+    <div class="signal-preview">
+      ${rows.map((row) => `
+        <a class="signal-row" style="--row-accent: ${sourceColorForRow(row)}" href="${escapeHtml(row.url)}" target="_blank" rel="noreferrer">
+          <span class="signal-dot" aria-hidden="true"></span>
+          <strong>${escapeHtml(row.title)}</strong>
+          <small>${escapeHtml(formatEventTiming(row))}${renderDistance(row)} · ${escapeHtml(row.source)}</small>
+        </a>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -585,9 +617,9 @@ function renderDistance(row) {
   return Number.isFinite(row.distance) ? ` · ${distanceLabel(row)}` : "";
 }
 
-function sourceCard(title, status, body, source) {
+function sourceCard(title, status, body, source, category) {
   return `
-    <article class="source-card">
+    <article class="source-card" style="--row-accent: ${sourceColorForCategory(category)}">
       <div>
         <span class="source-dot" aria-hidden="true"></span>
         <strong>${title}</strong>
@@ -600,34 +632,25 @@ function sourceCard(title, status, body, source) {
 }
 
 function sourceInitialForRow(row) {
-  if (row.source === "311") return "3";
-  if (/espn|sports/i.test(row.source || row.type || "")) return "S";
-  if (/mta/i.test(row.source || "")) return "M";
-  if (/notify/i.test(row.source || "")) return "N";
-  if (/permit|parks|cecm|nyc/i.test(row.source || "")) return "C";
-  if (/venue|ticket|eventbrite|songkick|seatgeek/i.test(row.source || "")) return "E";
-  return "!";
+  return SOURCE_CATEGORIES[sourceCategoryForRow(row)]?.initial || "!";
 }
 
 function sourceColorForRow(row) {
-  const value = `${row.source} ${row.type}`.toLowerCase();
-  if (row.source === "311") return sourceColorForKey("311");
-  if (value.includes("sports")) return sourceColorForKey("sports");
-  if (value.includes("mta")) return sourceColorForKey("mta");
-  if (value.includes("notify")) return sourceColorForKey("notify");
-  if (value.includes("permit") || value.includes("parks") || value.includes("cecm")) return sourceColorForKey("city");
-  return sourceColorForKey("ticketed");
+  return sourceColorForCategory(sourceCategoryForRow(row));
 }
 
-function sourceColorForKey(key) {
-  return {
-    "311": "#D82233",
-    sports: "#F6BC26",
-    mta: "#0062CF",
-    notify: "#7C858C",
-    city: "#009952",
-    ticketed: "#9A38A1"
-  }[key];
+function sourceCategoryForRow(row) {
+  const value = `${row.source} ${row.type}`.toLowerCase();
+  if (row.source === "311") return "noise311";
+  if (value.includes("sports") || value.includes("espn")) return "sports";
+  if (value.includes("mta")) return "transit";
+  if (value.includes("notify")) return "alerts";
+  if (value.includes("permit") || value.includes("parks") || value.includes("cecm") || value.includes("venue") || value.includes("calendar")) return "city";
+  return "ticketed";
+}
+
+function sourceColorForCategory(category) {
+  return SOURCE_CATEGORIES[category]?.color || SOURCE_CATEGORIES.ticketed.color;
 }
 
 function drawRadar() {
@@ -701,7 +724,7 @@ function drawRadar() {
       const scale = Math.max(1, Math.min(1.7, width / 720));
       const size = (6 + Math.min(point.count, 12) * 0.32) * scale;
 
-      ctx.fillStyle = point.failed ? "#7c858c" : source.color;
+      ctx.fillStyle = point.failed ? SOURCE_CATEGORIES.transit.color : sourceColorForCategory(source.category);
       ctx.beginPath();
       ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
       ctx.fill();
@@ -732,7 +755,7 @@ function drawRadar() {
 
 function cyclePoint(points, time) {
   if (!points.length) return null;
-  return points[Math.floor(time / 2000) % points.length];
+  return points[Math.floor(time / 3000) % points.length];
 }
 
 function updateRadarTooltip(tooltip, point, tooltipId) {

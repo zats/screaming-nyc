@@ -7,12 +7,17 @@ const SPORTS = [
   { name: "NFL", url: "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard" }
 ];
 
+const SPORTS_DB_DAY_SPORTS = ["Baseball", "Basketball", "Ice Hockey", "Soccer", "American Football"];
+
 const NYC_VENUES = [
   { name: "Madison Square Garden", lat: 40.7505, lon: -73.9934 },
   { name: "Barclays Center", lat: 40.6826, lon: -73.9754 },
   { name: "Yankee Stadium", lat: 40.8296, lon: -73.9262 },
   { name: "Citi Field", lat: 40.7571, lon: -73.8458 },
   { name: "Red Bull Arena", lat: 40.7368, lon: -74.1502 },
+  { name: "MetLife Stadium", lat: 40.8135, lon: -74.0745 },
+  { name: "UBS Arena", lat: 40.7118, lon: -73.7278 },
+  { name: "Prudential Center", lat: 40.7336, lon: -74.1711 },
   { name: "Radio City Music Hall", lat: 40.7600, lon: -73.9800 },
   { name: "Beacon Theatre", lat: 40.7805, lon: -73.9810 },
   { name: "Terminal 5", lat: 40.7697, lon: -73.9928 },
@@ -45,7 +50,13 @@ const HOME_VENUES = new Map([
   ["New York Yankees", venue("Yankee Stadium")],
   ["New York Mets", venue("Citi Field")],
   ["New York City FC", venue("Yankee Stadium")],
-  ["New York Red Bulls", venue("Red Bull Arena")]
+  ["New York Red Bulls", venue("Red Bull Arena")],
+  ["New York Islanders", venue("UBS Arena")],
+  ["New Jersey Devils", venue("Prudential Center")],
+  ["New York Giants", venue("MetLife Stadium")],
+  ["New York Jets", venue("MetLife Stadium")],
+  ["NJ/NY Gotham FC", venue("Red Bull Arena")],
+  ["Gotham FC", venue("Red Bull Arena")]
 ]);
 
 export function parseScanParams(request) {
@@ -62,19 +73,79 @@ export function parseScanParams(request) {
   return { lat, lon, radius, source };
 }
 
-export async function scanSports(lat, lon, radius) {
+export async function scanSports(lat, lon, radius, env = {}) {
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const results = await Promise.allSettled(
-    SPORTS.map(async (sport) => {
-      const url = new URL(sport.url);
-      url.searchParams.set("dates", date);
-      url.searchParams.set("limit", "100");
-      const data = await fetchJson(url);
-      return (data.events || []).flatMap((event) => mapSportEvent(sport.name, event, lat, lon, radius));
-    })
+    [
+      ...SPORTS.map(async (sport) => {
+        const url = new URL(sport.url);
+        url.searchParams.set("dates", date);
+        url.searchParams.set("limit", "100");
+        const data = await fetchJson(url);
+        return (data.events || []).flatMap((event) => mapSportEvent(sport.name, event, lat, lon, radius));
+      }),
+      scanSportsDb(lat, lon, radius, env)
+    ]
   );
 
   return dedupeEvents(results.flatMap((result) => (result.status === "fulfilled" ? result.value : [])));
+}
+
+async function scanSportsDb(lat, lon, radius, env) {
+  const key = env.THE_SPORTS_DB_API_KEY || globalThis.process?.env?.THE_SPORTS_DB_API_KEY || "";
+  if (!key) return [];
+
+  const dates = [
+    localDate(new Date(Date.now() - 24 * 60 * 60 * 1000)),
+    localDate(new Date()),
+    localDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
+  ];
+  const results = await Promise.allSettled(
+    dates.flatMap((date) => SPORTS_DB_DAY_SPORTS.map(async (sport) => {
+      const url = new URL(`https://www.thesportsdb.com/api/v1/json/${key}/eventsday.php`);
+      url.searchParams.set("d", date);
+      url.searchParams.set("s", sport);
+      const data = await fetchJson(url);
+      return (data.events || []).flatMap((event) => mapSportsDbEvent(event, lat, lon, radius));
+    }))
+  );
+
+  return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+}
+
+function mapSportsDbEvent(event, lat, lon, radius) {
+  const eventVenue = sportsDbVenue(event);
+  if (!eventVenue) return [];
+
+  const miles = distanceMiles(lat, lon, eventVenue.lat, eventVenue.lon);
+  if (miles > radius) return [];
+
+  const time = sportsDbEventTime(event);
+  if (!isNearNow(time)) return [];
+
+  return {
+    title: event.strEvent || `${event.strAwayTeam} at ${event.strHomeTeam}`,
+    type: "Sports",
+    time,
+    endTime: eventEndTime(time, "Sports"),
+    place: eventVenue.name,
+    source: "TheSportsDB",
+    url: `https://www.thesportsdb.com/event/${event.idEvent}`,
+    distance: miles
+  };
+}
+
+function sportsDbVenue(event) {
+  return HOME_VENUES.get(event.strHomeTeam)
+    || matchKnownVenue(event.strVenue || "")
+    || matchKnownVenue(event.strThumb || "");
+}
+
+function sportsDbEventTime(event) {
+  const timestamp = event.strTimestamp || "";
+  if (timestamp) return /Z|[+-]\d\d:?\d\d$/.test(timestamp) ? timestamp : `${timestamp}Z`;
+  if (event.dateEvent) return `${event.dateEvent}T${event.strTime || "00:00:00"}Z`;
+  return "";
 }
 
 export async function scanTicketedEvents(lat, lon, radius, env = {}) {

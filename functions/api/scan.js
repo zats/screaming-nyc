@@ -5,7 +5,7 @@ export async function onRequestGet({ request, env }) {
   try {
     const { lat, lon, radius } = parseScanParams(request);
     const [sports, ticketedEvents] = await Promise.all([
-      scanSports(lat, lon, radius),
+      scanSports(lat, lon, radius, env),
       scanTicketedEvents(lat, lon, radius, env)
     ]);
 

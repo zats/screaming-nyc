@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
           try {
             const { lat, lon, radius } = parseScanParams(toRequest(req));
             const [sports, ticketedEvents] = await Promise.all([
-              scanSports(lat, lon, radius),
+              scanSports(lat, lon, radius, localEnv),
               scanTicketedEvents(lat, lon, radius, localEnv)
             ]);
             sendJson(res, 200, { sports, ticketedEvents });
@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
         server.middlewares.use("/api/sports", async (req, res) => {
           try {
             const { lat, lon, radius } = parseScanParams(toRequest(req));
-            sendJson(res, 200, { events: await scanSports(lat, lon, radius) });
+            sendJson(res, 200, { events: await scanSports(lat, lon, radius, localEnv) });
           } catch (error) {
             sendJson(res, error.message === "lat/lon required" ? 400 : 500, { error: error.message });
           }
