@@ -198,7 +198,7 @@ canvas {
 }
 
 .radar-tooltip {
-  align-items: center;
+  align-items: baseline;
   background: #c9cdc6;
   border-radius: 0;
   color: #1d2b36;
@@ -218,6 +218,7 @@ canvas {
 }
 
 .radar-tooltip img {
+  align-self: center;
   background: #f4f5f0;
   border-radius: 0;
   height: 7px;

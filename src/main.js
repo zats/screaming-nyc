@@ -664,6 +664,8 @@ function drawRadar() {
   let height = canvas.height;
   let hoveredId = "";
   let tooltipId = "";
+  let cycleAnchorId = "";
+  let cycleAnchorTime = 0;
 
   const syncCanvasSize = () => {
     const rect = canvas.getBoundingClientRect();
@@ -682,10 +684,19 @@ function drawRadar() {
     const x = ((event.clientX - rect.left) / rect.width) * width;
     const y = ((event.clientY - rect.top) / rect.height) * height;
     const point = radarPoints.find((item) => Math.hypot(item.x - x, item.y - y) < 12);
-    hoveredId = point?.id || "";
+    const nextHoveredId = point?.id || "";
+    if (hoveredId && !nextHoveredId) {
+      cycleAnchorId = hoveredId;
+      cycleAnchorTime = performance.now();
+    }
+    hoveredId = nextHoveredId;
   };
 
   canvas.onmouseleave = () => {
+    if (hoveredId) {
+      cycleAnchorId = hoveredId;
+      cycleAnchorTime = performance.now();
+    }
     hoveredId = "";
   };
 
@@ -708,7 +719,7 @@ function drawRadar() {
     radarPoints = state.sourceDots.map((dot, index) => sourcePoint(dot, index, time, width, height));
     const activePoint = hoveredId
       ? radarPoints.find((point) => point.id === hoveredId)
-      : cyclePoint(radarPoints, time);
+      : cyclePoint(radarPoints, time, cycleAnchorId, cycleAnchorTime);
 
     if (activePoint && tooltip) {
       updateRadarTooltip(tooltip, activePoint, tooltipId);
@@ -753,9 +764,11 @@ function drawRadar() {
   paint(performance.now());
 }
 
-function cyclePoint(points, time) {
+function cyclePoint(points, time, anchorId = "", anchorTime = 0) {
   if (!points.length) return null;
-  return points[Math.floor(time / 3000) % points.length];
+  const anchorIndex = Math.max(0, points.findIndex((point) => point.id === anchorId));
+  const elapsed = Math.max(0, time - anchorTime);
+  return points[(anchorIndex + Math.floor(elapsed / 3000)) % points.length];
 }
 
 function updateRadarTooltip(tooltip, point, tooltipId) {
@@ -778,7 +791,7 @@ function drawCallout(ctx, tooltip, point, canvas) {
   const startX = (tooltipRect.right - canvasRect.left) * scaleX;
   const startY = (tooltipRect.top + tooltipRect.height / 2 - canvasRect.top) * scaleY;
 
-  ctx.strokeStyle = "#7c858c";
+  ctx.strokeStyle = "#c9cdc6";
   ctx.lineWidth = 1.25;
   ctx.beginPath();
   ctx.moveTo(startX, startY);
@@ -835,8 +848,10 @@ function likelihoodScore(row) {
 
   const hoursFromStart = (Date.now() - time) / (60 * 60 * 1000);
   const timeScore = timeLikelihood(hoursFromStart, row.type);
-  const distanceScore = soundDistanceLikelihood(distance, row.type);
-  const score = Math.max(0, Math.min(100, timeScore * distanceScore));
+  const distanceScore = soundDistanceLikelihood(distance);
+  const noiseScore = eventNoiseMultiplier(row);
+  const scoreCap = quietIndoorCap(row);
+  const score = Math.max(0, Math.min(scoreCap, timeScore * distanceScore * noiseScore));
 
   return /mta/i.test(row.source || "") ? Math.min(score, 12) : score;
 }
@@ -855,16 +870,48 @@ function timeLikelihood(hoursFromStart, type) {
   return 6;
 }
 
-function soundDistanceLikelihood(distance, type) {
-  const outdoorBoost = /festival|party|sport|auto|boat|air/i.test(type || "") ? 1.15 : 1;
-  const base =
+function soundDistanceLikelihood(distance) {
+  return (
     distance <= 0.15 ? 1 :
     distance <= 0.35 ? 0.85 :
     distance <= 0.7 ? 0.58 :
     distance <= 1.2 ? 0.3 :
     distance <= 2 ? 0.14 :
-    0.05;
-  return Math.min(1, base * outdoorBoost);
+    0.05
+  );
+}
+
+function eventNoiseMultiplier(row) {
+  const text = normalizeWhitespace(`${row.title} ${row.type} ${row.place} ${row.source}`).toLowerCase();
+  let multiplier = 1;
+
+  if (/sport|game|match|watch party|playoff|knicks|rangers|yankees|mets|nets|liberty|nycfc|red bulls|giants|jets/.test(text)) {
+    multiplier *= 1.5;
+  }
+  if (/concert|live music|\bmusic\b|dj|festival|party|dance|club|nightlife|band|rave/.test(text)) {
+    multiplier *= 1.35;
+  }
+  if (/rally|parade|street festival|block party|fireworks/.test(text)) {
+    multiplier *= 1.4;
+  }
+  if (/stadium|arena|garden|barclays|citi field|yankee|red bull|metlife|ubs|prudential|terminal 5|mirage/.test(text)) {
+    multiplier *= 1.25;
+  }
+  if (/outdoor|park|pier|plaza|street|field|lawn|waterfront|rooftop|yacht|boat/.test(text)) {
+    multiplier *= 1.2;
+  }
+  if (/theater|theatre|broadway|musical|philharmonic|symphony|orchestra|opera|ballet|recital|lecture|screening|comedy|stage|play\b/.test(text)) {
+    multiplier *= 0.45;
+  }
+
+  return Math.max(0.25, Math.min(2.2, multiplier));
+}
+
+function quietIndoorCap(row) {
+  const text = normalizeWhitespace(`${row.title} ${row.type} ${row.place} ${row.source}`).toLowerCase();
+  const quietArts = /theater|theatre|broadway|musical|philharmonic|symphony|orchestra|opera|ballet|recital|lecture|screening|comedy|stage|play\b/.test(text);
+  const loudContext = /concert|live music|\bmusic\b|dj|festival|party|sport|game|match|rally|parade|fireworks|club|nightlife|band|rave/.test(text);
+  return quietArts && !loudContext ? 28 : 100;
 }
 
 function eventTimingLabel(row) {
