@@ -5,7 +5,9 @@ const CITY_SOURCES = {
   noise311:
     "https://data.cityofnewyork.us/resource/erm2-nwe9.json",
   permittedEvents:
-    "https://data.cityofnewyork.us/resource/tvpp-9vvx.json"
+    "https://data.cityofnewyork.us/resource/tvpp-9vvx.json",
+  geosearch:
+    "https://geosearch.planninglabs.nyc/v2/search"
 };
 
 const BOROUGHS = [
@@ -69,6 +71,7 @@ let state = {
 let activeScan = 0;
 let radarFrame = 0;
 let radarPoints = [];
+const geocodeCache = new Map();
 
 render();
 autoLocateOrScan();
@@ -346,7 +349,7 @@ async function fetchPermittedEvents(location) {
   url.searchParams.set("$limit", "12");
 
   const data = await fetchJson(url);
-  return data.map((item) => ({
+  const rows = data.map((item) => ({
     title: item.event_name || item.event_type,
     type: item.event_type,
     time: item.start_date_time,
@@ -355,6 +358,72 @@ async function fetchPermittedEvents(location) {
     source: item.event_agency || "NYC permit",
     url: "https://data.cityofnewyork.us/resource/tvpp-9vvx.json"
   }));
+
+  return Promise.all(rows.map((row) => addGeocodedDistance(row, location)));
+}
+
+async function addGeocodedDistance(row, location) {
+  const point = await geocodePlace(row.place, location);
+  if (!point) return row;
+
+  return {
+    ...row,
+    geocodedPlace: point.label,
+    distance: distanceMiles(location.lat, location.lon, point.lat, point.lon)
+  };
+}
+
+async function geocodePlace(place, location) {
+  for (const query of geocodeQueries(place)) {
+    const point = await geocodeQuery(query, location);
+    if (point) return point;
+  }
+  return null;
+}
+
+function geocodeQueries(place) {
+  const raw = normalizeWhitespace(place);
+  const split = raw.match(/^(.+?):\s*(.+)$/);
+  const queries = [raw];
+
+  if (split) {
+    const base = normalizeWhitespace(split[1]);
+    const detail = normalizePermitDetail(split[2]);
+    queries.push(base);
+    if (detail) queries.push(`${base} ${detail}`);
+  }
+
+  return [...new Set(queries.filter(Boolean))];
+}
+
+function normalizePermitDetail(value) {
+  return normalizeWhitespace(value)
+    .replace(/\b(\d+)(st|nd|rd|th)\b/gi, "$1 $2")
+    .replace(/-\d+.*$/i, "")
+    .replace(/-[A-Z]\b.*$/i, "");
+}
+
+async function geocodeQuery(query, location) {
+  const key = `${query}|${location.lat.toFixed(3)}|${location.lon.toFixed(3)}`.toLowerCase();
+  if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+  const url = new URL(CITY_SOURCES.geosearch);
+  url.searchParams.set("text", query);
+  url.searchParams.set("focus.point.lat", location.lat);
+  url.searchParams.set("focus.point.lon", location.lon);
+  url.searchParams.set("size", "1");
+
+  const data = await fetchJson(url);
+  const feature = data.features?.[0];
+  const coords = feature?.geometry?.coordinates || [];
+  const lon = Number(coords[0]);
+  const lat = Number(coords[1]);
+  const point = Number.isFinite(lat) && Number.isFinite(lon)
+    ? { lat, lon, label: feature.properties?.label || query }
+    : null;
+
+  geocodeCache.set(key, point);
+  return point;
 }
 
 async function fetchJson(url) {
@@ -664,6 +733,24 @@ function distanceLabel(row) {
   if (row.distance < 0.2) return "very close";
   if (row.distance < 0.7) return `${row.distance.toFixed(1)} mi`;
   return `${row.distance.toFixed(1)} mi`;
+}
+
+function distanceMiles(lat1, lon1, lat2, lon2) {
+  const radius = 3958.8;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRad(value) {
+  return (value * Math.PI) / 180;
+}
+
+function normalizeWhitespace(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function interpolate(value, min, max, start, end) {
