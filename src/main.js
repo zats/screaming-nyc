@@ -9,6 +9,7 @@ const CITY_SOURCES = {
   geosearch:
     "https://geosearch.planninglabs.nyc/v2/search"
 };
+const GEOCODE_CACHE_STORAGE_KEY = "screaming-nyc-geocode-v1";
 
 const BOROUGHS = [
   { label: "Manhattan", lat: 40.7831, lon: -73.9712 },
@@ -106,7 +107,7 @@ let activeScan = 0;
 let lastOpenRefreshAt = 0;
 let radarFrame = 0;
 let radarPoints = [];
-const geocodeCache = new Map();
+const geocodeCache = loadGeocodeCache();
 
 render();
 registerServiceWorker();
@@ -501,8 +502,38 @@ async function geocodeQuery(query, location) {
     ? { lat, lon, label: feature.properties?.label || query }
     : null;
 
-  geocodeCache.set(key, point);
+  if (point) {
+    geocodeCache.set(key, point);
+    saveGeocodeCache();
+  }
+
   return point;
+}
+
+function loadGeocodeCache() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(GEOCODE_CACHE_STORAGE_KEY) || "[]");
+    if (!Array.isArray(rows)) return new Map();
+
+    return new Map(
+      rows.filter(([key, point]) =>
+        typeof key === "string" &&
+        Number.isFinite(point?.lat) &&
+        Number.isFinite(point?.lon) &&
+        typeof point?.label === "string"
+      )
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+function saveGeocodeCache() {
+  try {
+    localStorage.setItem(GEOCODE_CACHE_STORAGE_KEY, JSON.stringify([...geocodeCache]));
+  } catch {
+    // Storage can be disabled or full; geocoding should still succeed for this scan.
+  }
 }
 
 async function fetchJson(url) {

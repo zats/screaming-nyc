@@ -67,13 +67,13 @@ button:hover {
 }
 
 .tagline {
-  color: #6d777f;
-  font-size: 17px;
+  color: #8b949a;
+  font-size: 11px;
+  font-weight: 400;
   grid-column: 1 / -1;
   grid-row: 2;
-  line-height: 1;
+  line-height: 1.15;
   margin: 0;
-  text-transform: uppercase;
 }
 
 .route-bullets {
@@ -630,7 +630,7 @@ input {
   }
 
   h1 {
-    font-size: clamp(38px, 11vw, 44px);
+    font-size: clamp(28px, 8.4vw, 32px);
   }
 
   h1 span {
@@ -650,7 +650,10 @@ input {
   }
 
   .hero,
+  .station-sign,
+  .panel-head,
   .evidence,
+  .sources h3,
   .source-grid {
     border-width: 4px;
   }
