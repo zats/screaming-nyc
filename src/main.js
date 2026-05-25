@@ -50,7 +50,7 @@ function render() {
       <header class="topbar">
         <div>
           <p class="eyebrow">NYC live scan</p>
-          <h1>Why are people screaming?</h1>
+          <h1>Screaming New York</h1>
         </div>
       </header>
 
