@@ -615,7 +615,8 @@ function drawRadar() {
 
     ctx.strokeStyle = "#d4d4d0";
     ctx.lineWidth = 1;
-    for (let radius = 42; radius < 180; radius += 42) {
+    const maxRing = Math.max(width, height) * 0.62;
+    for (let radius = maxRing / 8; radius <= maxRing; radius += maxRing / 8) {
       ctx.beginPath();
       ctx.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
       ctx.stroke();
@@ -652,7 +653,8 @@ function drawRadar() {
 }
 
 function sourcePoint(dot, index, total, time) {
-  const radius = 46 + (index % 3) * 44;
+  const maxRing = Math.min(520, 280) * 0.58;
+  const radius = maxRing * (0.22 + (index % 4) * 0.18);
   const angle = (index / Math.max(total, 1)) * Math.PI * 2 + time * 0.00012 * (index % 2 ? -1 : 1);
   const appear = Math.min(1, Math.max(0, (time - dot.loadedAt) / 450));
   return {
