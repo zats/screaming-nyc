@@ -22,61 +22,61 @@ const RADAR_SOURCES = {
     label: "NYC 311",
     domain: "nyc.gov",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
-    color: "#052c4b"
+    color: sourceColorForKey("311")
   },
   sports: {
     label: "ESPN sports",
     domain: "espn.com",
     favicon: "https://www.google.com/s2/favicons?domain=espn.com&sz=32",
-    color: "#760e12"
+    color: sourceColorForKey("sports")
   },
   eventbrite: {
     label: "Eventbrite",
     domain: "eventbrite.com",
     favicon: "https://www.eventbrite.com/favicon.ico",
-    color: "#802f18"
+    color: sourceColorForKey("ticketed")
   },
   songkick: {
     label: "Songkick",
     domain: "songkick.com",
     favicon: "https://assets.sk-static.com/images/favicon.ico",
-    color: "#800b3c"
+    color: sourceColorForKey("ticketed")
   },
   ticketmaster: {
     label: "Ticketmaster",
     domain: "ticketmaster.com",
     favicon: "https://www.google.com/s2/favicons?domain=ticketmaster.com&sz=32",
-    color: "#013670"
+    color: sourceColorForKey("ticketed")
   },
   seatgeek: {
     label: "SeatGeek",
     domain: "seatgeek.com",
     favicon: "https://www.google.com/s2/favicons?domain=seatgeek.com&sz=32",
-    color: "#4b2d78"
+    color: sourceColorForKey("ticketed")
   },
   permits: {
     label: "NYC permits",
     domain: "nyc.gov",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
-    color: "#052c4b"
+    color: sourceColorForKey("city")
   },
   notify: {
     label: "Notify NYC",
     domain: "nyc.gov",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
-    color: "#353535"
+    color: sourceColorForKey("notify")
   },
   mta: {
     label: "MTA alerts",
     domain: "mta.info",
     favicon: "https://www.google.com/s2/favicons?domain=mta.info&sz=32",
-    color: "#0039a6"
+    color: sourceColorForKey("mta")
   },
   venues: {
     label: "Venue calendars",
     domain: "nyc.com",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.com&sz=32",
-    color: "#555"
+    color: sourceColorForKey("ticketed")
   }
 };
 
@@ -111,11 +111,16 @@ function render() {
   const topGuess = getTopGuess();
   app.innerHTML = `
     <section class="shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">I'm screamin' here!</p>
-          <h1>Screaming New York</h1>
+      <header class="station-sign">
+        <div class="sign-kicker">
+          <span>I'm screamin' here!</span>
+          <span class="route-bullets" aria-hidden="true">
+            <b class="route route-grey">S</b>
+            <b class="route route-yellow">N</b>
+            <b class="route route-purple">Y</b>
+          </span>
         </div>
+        <h1><span>Screaming</span><span>New York</span></h1>
       </header>
 
       <section class="hero">
@@ -124,7 +129,7 @@ function render() {
           <div id="radarTooltip" class="radar-tooltip" hidden></div>
         </div>
         <div class="readout">
-          <p class="label">Best guess near ${escapeHtml(state.location.label)}</p>
+          <p class="label"><span class="arrow">To</span> Best guess near ${escapeHtml(state.location.label)}</p>
           <h2>${escapeHtml(topGuess.title)}</h2>
           <p>${escapeHtml(topGuess.reason)}</p>
           <div class="stats">
@@ -144,7 +149,7 @@ function render() {
 
       <section class="panel">
         <div class="panel-head">
-          <h3>Screaming reasons</h3>
+          <h3><span class="arrow">At</span> Screaming reasons</h3>
           <button id="refresh" class="icon-button ${state.status === "loading" ? "is-spinning" : ""}" aria-label="${state.status === "loading" ? "Scanning" : "Refresh"}" title="${state.status === "loading" ? "Scanning" : "Refresh"}">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.45 10.9h-2.18A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h8V3z"/>
@@ -554,12 +559,15 @@ function renderReasonGroup(title, rows) {
       ${rows
         .map(
           (row) => `
-        <a class="row" href="${escapeHtml(row.url)}" target="_blank" rel="noreferrer">
-          <div class="row-title">
-            <strong>${escapeHtml(row.title)}</strong>
-            <span>${escapeHtml(formatEventTiming(row))}${renderDistance(row)}</span>
+        <a class="row" style="--row-accent: ${sourceColorForRow(row)}" href="${escapeHtml(row.url)}" target="_blank" rel="noreferrer">
+          <span class="row-bullet" aria-hidden="true">${escapeHtml(sourceInitialForRow(row))}</span>
+          <div class="row-copy">
+            <div class="row-title">
+              <strong>${escapeHtml(row.title)}</strong>
+              <span>${escapeHtml(formatEventTiming(row))}${renderDistance(row)}</span>
+            </div>
+            <small>${escapeHtml(row.place)} · ${escapeHtml(row.source)}${renderLikelihood(row)}</small>
           </div>
-          <small>${escapeHtml(row.place)} · ${escapeHtml(row.source)}${renderLikelihood(row)}</small>
         </a>
       `
         )
@@ -581,6 +589,7 @@ function sourceCard(title, status, body, source) {
   return `
     <article class="source-card">
       <div>
+        <span class="source-dot" aria-hidden="true"></span>
         <strong>${title}</strong>
         <span>${status}</span>
       </div>
@@ -590,6 +599,37 @@ function sourceCard(title, status, body, source) {
   `;
 }
 
+function sourceInitialForRow(row) {
+  if (row.source === "311") return "3";
+  if (/espn|sports/i.test(row.source || row.type || "")) return "S";
+  if (/mta/i.test(row.source || "")) return "M";
+  if (/notify/i.test(row.source || "")) return "N";
+  if (/permit|parks|cecm|nyc/i.test(row.source || "")) return "C";
+  if (/venue|ticket|eventbrite|songkick|seatgeek/i.test(row.source || "")) return "E";
+  return "!";
+}
+
+function sourceColorForRow(row) {
+  const value = `${row.source} ${row.type}`.toLowerCase();
+  if (row.source === "311") return sourceColorForKey("311");
+  if (value.includes("sports")) return sourceColorForKey("sports");
+  if (value.includes("mta")) return sourceColorForKey("mta");
+  if (value.includes("notify")) return sourceColorForKey("notify");
+  if (value.includes("permit") || value.includes("parks") || value.includes("cecm")) return sourceColorForKey("city");
+  return sourceColorForKey("ticketed");
+}
+
+function sourceColorForKey(key) {
+  return {
+    "311": "#D82233",
+    sports: "#F6BC26",
+    mta: "#0062CF",
+    notify: "#7C858C",
+    city: "#009952",
+    ticketed: "#9A38A1"
+  }[key];
+}
+
 function drawRadar() {
   cancelAnimationFrame(radarFrame);
   const canvas = document.querySelector("#radar");
@@ -597,9 +637,22 @@ function drawRadar() {
 
   const ctx = canvas.getContext("2d");
   const tooltip = document.querySelector("#radarTooltip");
-  const { width, height } = canvas;
+  let width = canvas.width;
+  let height = canvas.height;
   let hoveredId = "";
   let tooltipId = "";
+
+  const syncCanvasSize = () => {
+    const rect = canvas.getBoundingClientRect();
+    const nextWidth = Math.max(1, Math.round(rect.width));
+    const nextHeight = Math.max(1, Math.round(rect.height));
+    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+      canvas.width = nextWidth;
+      canvas.height = nextHeight;
+    }
+    width = canvas.width;
+    height = canvas.height;
+  };
 
   canvas.onmousemove = (event) => {
     const rect = canvas.getBoundingClientRect();
@@ -614,20 +667,22 @@ function drawRadar() {
   };
 
   const paint = (time) => {
+    syncCanvasSize();
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#f3f3f1";
+    ctx.fillStyle = "#edf0e9";
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = "#d4d4d0";
-    ctx.lineWidth = 1;
-    const maxRing = Math.max(width, height) * 0.62;
-    for (let radius = maxRing / 8; radius <= maxRing; radius += maxRing / 8) {
+    ctx.strokeStyle = "#aeb7b0";
+    ctx.lineWidth = 1.35;
+    const ringStep = orbitRingStep(width, height);
+    const maxRing = Math.max(width, height) * 0.72;
+    for (let radius = ringStep; radius <= maxRing; radius += ringStep) {
       ctx.beginPath();
       ctx.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    radarPoints = state.sourceDots.map((dot, index) => sourcePoint(dot, index, time));
+    radarPoints = state.sourceDots.map((dot, index) => sourcePoint(dot, index, time, width, height));
     const activePoint = hoveredId
       ? radarPoints.find((point) => point.id === hoveredId)
       : cyclePoint(radarPoints, time);
@@ -643,15 +698,20 @@ function drawRadar() {
 
     radarPoints.forEach((point) => {
       const source = RADAR_SOURCES[point.id];
-      const size = 5 + Math.min(point.count, 12) * 0.22;
+      const scale = Math.max(1, Math.min(1.7, width / 720));
+      const size = (6 + Math.min(point.count, 12) * 0.32) * scale;
 
-      ctx.fillStyle = point.failed ? "#c9c9c4" : source.color;
+      ctx.fillStyle = point.failed ? "#7c858c" : source.color;
       ctx.beginPath();
       ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
       ctx.fill();
 
+      ctx.strokeStyle = "#edf0e9";
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
       if (point.id === hoveredId) {
-        ctx.strokeStyle = "#111";
+        ctx.strokeStyle = "#f6bc26";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(point.x, point.y, size + 5, 0, Math.PI * 2);
@@ -659,7 +719,7 @@ function drawRadar() {
       }
     });
 
-    ctx.fillStyle = "#111";
+    ctx.fillStyle = "#1d2b36";
     ctx.beginPath();
     ctx.arc(width / 2, height / 2, 7, 0, Math.PI * 2);
     ctx.fill();
@@ -695,24 +755,28 @@ function drawCallout(ctx, tooltip, point, canvas) {
   const startX = (tooltipRect.right - canvasRect.left) * scaleX;
   const startY = (tooltipRect.top + tooltipRect.height / 2 - canvasRect.top) * scaleY;
 
-  ctx.strokeStyle = "#c6c6bf";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#7c858c";
+  ctx.lineWidth = 1.25;
   ctx.beginPath();
   ctx.moveTo(startX, startY);
   ctx.lineTo(point.x, point.y);
   ctx.stroke();
 }
 
-function sourcePoint(dot, index, time) {
-  const maxRing = Math.min(520, 280) * 0.58;
-  const radius = maxRing * (0.16 + index * 0.105);
+function sourcePoint(dot, index, time, width, height) {
+  const ringStep = orbitRingStep(width, height);
+  const radius = ringStep * (index + 1);
   const angle = index * 2.24 + time * 0.00012 * (index % 2 ? -1 : 1);
   const appear = Math.min(1, Math.max(0, (time - dot.loadedAt) / 450));
   return {
     ...dot,
-    x: 260 + Math.cos(angle) * radius * appear,
-    y: 140 + Math.sin(angle) * radius * 0.72 * appear
+    x: width / 2 + Math.cos(angle) * radius * appear,
+    y: height / 2 + Math.sin(angle) * radius * appear
   };
+}
+
+function orbitRingStep(width, height) {
+  return (Math.max(width, height) * 0.434) / 8;
 }
 
 function boundingBox(lat, lon, miles) {
@@ -749,8 +813,9 @@ function likelihoodScore(row) {
   const hoursFromStart = (Date.now() - time) / (60 * 60 * 1000);
   const timeScore = timeLikelihood(hoursFromStart, row.type);
   const distanceScore = soundDistanceLikelihood(distance, row.type);
+  const score = Math.max(0, Math.min(100, timeScore * distanceScore));
 
-  return Math.max(0, Math.min(100, timeScore * distanceScore));
+  return /mta/i.test(row.source || "") ? Math.min(score, 12) : score;
 }
 
 function timeLikelihood(hoursFromStart, type) {
