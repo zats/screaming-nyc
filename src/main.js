@@ -113,7 +113,7 @@ function render() {
     <section class="shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">NYC live scan</p>
+          <p class="eyebrow">I'm screamin' here!</p>
           <h1>Screaming New York</h1>
         </div>
       </header>
