@@ -48,11 +48,35 @@ const RADAR_SOURCES = {
     favicon: "https://www.google.com/s2/favicons?domain=ticketmaster.com&sz=32",
     color: "#013670"
   },
+  seatgeek: {
+    label: "SeatGeek",
+    domain: "seatgeek.com",
+    favicon: "https://www.google.com/s2/favicons?domain=seatgeek.com&sz=32",
+    color: "#4b2d78"
+  },
   permits: {
     label: "NYC permits",
     domain: "nyc.gov",
     favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
     color: "#052c4b"
+  },
+  notify: {
+    label: "Notify NYC",
+    domain: "nyc.gov",
+    favicon: "https://www.google.com/s2/favicons?domain=nyc.gov&sz=32",
+    color: "#353535"
+  },
+  mta: {
+    label: "MTA alerts",
+    domain: "mta.info",
+    favicon: "https://www.google.com/s2/favicons?domain=mta.info&sz=32",
+    color: "#0039a6"
+  },
+  venues: {
+    label: "Venue calendars",
+    domain: "nyc.com",
+    favicon: "https://www.google.com/s2/favicons?domain=nyc.com&sz=32",
+    color: "#555"
   }
 };
 
@@ -62,6 +86,7 @@ let state = {
   status: "idle",
   reports: [],
   permits: [],
+  contextEvents: [],
   sports: [],
   ticketedEvents: [],
   sourceDots: [],
@@ -100,7 +125,7 @@ function render() {
             <span>${state.reports.length} noise reports</span>
             <span>${state.sports.length} sports</span>
             <span>${state.ticketedEvents.length} ticketed events</span>
-            <span>${state.permits.length} city context</span>
+            <span>${state.permits.length + state.contextEvents.length} city context</span>
           </div>
         </div>
       </section>
@@ -130,10 +155,10 @@ function render() {
         <h3>Sources to keep</h3>
         <div class="source-grid">
           ${sourceCard("311 noise", "Live-ish", "Best immediate signal: clustered recent complaints.", "Official NYC Open Data")}
-          ${sourceCard("Ticketed events", "Always on", "Searches broad event feeds for shows nearby now.", "Eventbrite, Songkick, Ticketmaster")}
+          ${sourceCard("Ticketed events", "Always on", "Searches broad event feeds for shows nearby now.", "Eventbrite, Songkick, Ticketmaster, SeatGeek")}
           ${sourceCard("Sports", "Always on", "Checks same-day public scoreboards for NYC teams.", "ESPN scoreboard JSON")}
-          ${sourceCard("NYC permits", "Context", "Parades, rallies, parks sports; useful backup.", "NYC CECM Open Data")}
-          ${sourceCard("Social/news", "Later", "Needed for protests or spontaneous crowds.", "RSS/X/Bluesky/manual feeds")}
+          ${sourceCard("City alerts", "Context", "Emergency, transit, and planned activity signals.", "Notify NYC, MTA, NYC CECM")}
+          ${sourceCard("Venue calendars", "Context", "Direct calendars for major NYC venues.", "MSG, Barclays, Apollo, Lincoln Center, clubs")}
         </div>
       </section>
     </section>
@@ -212,6 +237,7 @@ async function scan() {
   state.error = "";
   state.reports = [];
   state.permits = [];
+  state.contextEvents = [];
   state.sports = [];
   state.ticketedEvents = [];
   state.sourceDots = [];
@@ -227,9 +253,13 @@ async function scan() {
     runSource(scanId, "eventbrite", () => fetchTicketedSource(state.location, "eventbrite"), addTicketedEvents),
     runSource(scanId, "songkick", () => fetchTicketedSource(state.location, "songkick"), addTicketedEvents),
     runSource(scanId, "ticketmaster", () => fetchTicketedSource(state.location, "ticketmaster"), addTicketedEvents),
+    runSource(scanId, "seatgeek", () => fetchTicketedSource(state.location, "seatgeek"), addTicketedEvents),
     runSource(scanId, "permits", () => fetchPermittedEvents(state.location), (data) => {
       state.permits = data;
-    })
+    }),
+    runSource(scanId, "notify", () => fetchContextSource(state.location, "notify"), addContextEvents),
+    runSource(scanId, "mta", () => fetchContextSource(state.location, "mta"), addContextEvents),
+    runSource(scanId, "venues", () => fetchContextSource(state.location, "venues"), addTicketedEvents)
   ];
 
   const results = await Promise.all(tasks);
@@ -267,6 +297,10 @@ function addTicketedEvents(data) {
   state.ticketedEvents = dedupeRows([...state.ticketedEvents, ...data]).sort(compareRows).slice(0, 18);
 }
 
+function addContextEvents(data) {
+  state.contextEvents = dedupeRows([...state.contextEvents, ...data]).sort(compareRows).slice(0, 12);
+}
+
 function dedupeRows(rows) {
   const seen = new Set();
   return rows.filter((row) => {
@@ -292,6 +326,16 @@ async function fetchSports(location) {
 
 async function fetchTicketedSource(location, source) {
   const url = new URL("/api/ticketed-source", window.location.origin);
+  url.searchParams.set("lat", location.lat);
+  url.searchParams.set("lon", location.lon);
+  url.searchParams.set("radius", "3");
+  url.searchParams.set("source", source);
+  const data = await fetchJson(url);
+  return data.events || [];
+}
+
+async function fetchContextSource(location, source) {
+  const url = new URL("/api/context-source", window.location.origin);
   url.searchParams.set("lat", location.lat);
   url.searchParams.set("lon", location.lon);
   url.searchParams.set("radius", "3");
@@ -466,7 +510,7 @@ function getTopGuess() {
 }
 
 function renderEvidence() {
-  const rows = [...state.reports, ...state.sports, ...state.ticketedEvents, ...state.permits]
+  const rows = [...state.reports, ...state.sports, ...state.ticketedEvents, ...state.permits, ...state.contextEvents]
     .sort(compareRows)
     .slice(0, 16);
   if (state.status === "loading") return `<p class="muted">Scanning nearby sources...</p>`;
@@ -731,8 +775,11 @@ function formatDuration(ms) {
 function distanceLabel(row) {
   if (!Number.isFinite(row.distance)) return "an unknown distance";
   if (row.distance < 0.2) return "very close";
-  if (row.distance < 0.7) return `${row.distance.toFixed(1)} mi`;
-  return `${row.distance.toFixed(1)} mi`;
+  return `${formatNumber(row.distance, 1)} mi`;
+}
+
+function formatNumber(value, digits) {
+  return Number(value.toFixed(digits)).toString();
 }
 
 function distanceMiles(lat1, lon1, lat2, lon2) {

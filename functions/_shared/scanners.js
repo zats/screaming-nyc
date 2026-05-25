@@ -12,7 +12,29 @@ const NYC_VENUES = [
   { name: "Barclays Center", lat: 40.6826, lon: -73.9754 },
   { name: "Yankee Stadium", lat: 40.8296, lon: -73.9262 },
   { name: "Citi Field", lat: 40.7571, lon: -73.8458 },
-  { name: "Red Bull Arena", lat: 40.7368, lon: -74.1502 }
+  { name: "Red Bull Arena", lat: 40.7368, lon: -74.1502 },
+  { name: "Radio City Music Hall", lat: 40.7600, lon: -73.9800 },
+  { name: "Beacon Theatre", lat: 40.7805, lon: -73.9810 },
+  { name: "Terminal 5", lat: 40.7697, lon: -73.9928 },
+  { name: "Apollo Theater", lat: 40.8100, lon: -73.9500 },
+  { name: "Lincoln Center", lat: 40.7725, lon: -73.9835 },
+  { name: "Brooklyn Mirage", lat: 40.7109, lon: -73.9253 },
+  { name: "Bowery Ballroom", lat: 40.7204, lon: -73.9934 },
+  { name: "Blue Note", lat: 40.7308, lon: -74.0007 },
+  { name: "Comedy Cellar", lat: 40.7300, lon: -74.0008 }
+];
+
+const VENUE_CALENDARS = [
+  { name: "Madison Square Garden", source: "MSG calendar", url: "https://www.msg.com/calendar/madison-square-garden" },
+  { name: "Radio City Music Hall", source: "MSG calendar", url: "https://www.msg.com/calendar/radio-city-music-hall" },
+  { name: "Beacon Theatre", source: "MSG calendar", url: "https://www.msg.com/calendar/beacon-theatre" },
+  { name: "Barclays Center", source: "Barclays calendar", url: "https://www.barclayscenter.com/events" },
+  { name: "Apollo Theater", source: "Apollo calendar", url: "https://www.apollotheater.org/events/" },
+  { name: "Lincoln Center", source: "Lincoln Center", url: "https://www.lincolncenter.org/series/lincoln-center-presents" },
+  { name: "Brooklyn Mirage", source: "Avant Gardner", url: "https://www.avant-gardner.com/events" },
+  { name: "Bowery Ballroom", source: "Bowery Presents", url: "https://www.bowerypresents.com/venues/bowery-ballroom" },
+  { name: "Blue Note", source: "Blue Note", url: "https://www.bluenotejazz.com/nyc/shows/" },
+  { name: "Comedy Cellar", source: "Comedy Cellar", url: "https://www.comedycellar.com/line-up/" }
 ];
 
 const HOME_VENUES = new Map([
@@ -55,11 +77,12 @@ export async function scanSports(lat, lon, radius) {
   return dedupeEvents(results.flatMap((result) => (result.status === "fulfilled" ? result.value : [])));
 }
 
-export async function scanTicketedEvents(lat, lon, radius) {
+export async function scanTicketedEvents(lat, lon, radius, env = {}) {
   const results = await Promise.allSettled([
-    scanTicketedSource("eventbrite", lat, lon, radius),
-    scanTicketedSource("songkick", lat, lon, radius),
-    scanTicketedSource("ticketmaster", lat, lon, radius)
+    scanTicketedSource("eventbrite", lat, lon, radius, env),
+    scanTicketedSource("songkick", lat, lon, radius, env),
+    scanTicketedSource("ticketmaster", lat, lon, radius, env),
+    scanTicketedSource("seatgeek", lat, lon, radius, env)
   ]);
 
   return dedupeEvents(results.flatMap((result) => (result.status === "fulfilled" ? result.value : [])))
@@ -67,10 +90,18 @@ export async function scanTicketedEvents(lat, lon, radius) {
     .slice(0, 18);
 }
 
-export async function scanTicketedSource(source, lat, lon, radius) {
+export async function scanTicketedSource(source, lat, lon, radius, env = {}) {
   if (source === "eventbrite") return scanEventbrite(lat, lon, radius);
   if (source === "songkick") return scanSongkick(lat, lon, radius);
   if (source === "ticketmaster") return scanTicketmaster(lat, lon, radius);
+  if (source === "seatgeek") return scanSeatGeek(lat, lon, radius, env);
+  throw new Error("unknown source");
+}
+
+export async function scanContextSource(source, lat, lon, radius, env = {}) {
+  if (source === "notify") return scanNotifyNyc();
+  if (source === "mta") return scanMtaAlerts(env);
+  if (source === "venues") return scanVenueCalendars(lat, lon, radius);
   throw new Error("unknown source");
 }
 
@@ -206,6 +237,124 @@ function mapTicketmasterEvent(event, lat, lon, radius) {
   };
 }
 
+async function scanSeatGeek(lat, lon, radius, env) {
+  const clientId = env.SEATGEEK_CLIENT_ID || globalThis.process?.env?.SEATGEEK_CLIENT_ID || "";
+  if (!clientId) return [];
+
+  const url = new URL("https://api.seatgeek.com/2/events");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("lat", lat);
+  url.searchParams.set("lon", lon);
+  url.searchParams.set("range", `${radius}mi`);
+  url.searchParams.set("per_page", "50");
+  url.searchParams.set("datetime_utc.gte", seatGeekDate(Date.now() - 2 * 60 * 60 * 1000));
+  url.searchParams.set("datetime_utc.lte", seatGeekDate(Date.now() + 12 * 60 * 60 * 1000));
+  url.searchParams.set("sort", "datetime_utc.asc");
+
+  const data = await fetchJson(url);
+  return (data.events || []).flatMap((event) => {
+    const eventLat = Number(event.venue?.location?.lat);
+    const eventLon = Number(event.venue?.location?.lon);
+    if (!Number.isFinite(eventLat) || !Number.isFinite(eventLon)) return [];
+
+    const distance = distanceMiles(lat, lon, eventLat, eventLon);
+    if (distance > radius) return [];
+
+    const time = event.datetime_utc ? `${event.datetime_utc}Z` : event.datetime_local;
+    if (!isNearNow(time)) return [];
+
+    return {
+      title: event.title,
+      type: event.type || "Ticketed event",
+      time,
+      endTime: eventEndTime(time, event.type || "Ticketed event"),
+      place: event.venue?.name || "Nearby",
+      source: "SeatGeek",
+      url: event.url,
+      distance
+    };
+  });
+}
+
+async function scanNotifyNyc() {
+  const xml = await fetchText("https://feeds.everbridge.net/feeds/453003085617722/rss/rss.xml");
+  return parseRssItems(xml).flatMap((item) => {
+    if (!/\(NYC\)/i.test(item.title)) return [];
+    if (!isRecent(item.date, 6)) return [];
+    if (!/alert|advisory|emergency|police|fire|traffic|transit|event|weather|closure|missing|power|explosion|smoke|street/i.test(`${item.title} ${item.description}`)) return [];
+
+    return {
+      title: item.title,
+      type: "City alert",
+      time: item.date,
+      endTime: eventEndTime(item.date, "City alert"),
+      place: "NYC",
+      source: "Notify NYC",
+      url: item.link || "https://a858-nycnotify.nyc.gov/"
+    };
+  }).slice(0, 6);
+}
+
+async function scanMtaAlerts(env) {
+  const key = env.MTA_API_KEY || globalThis.process?.env?.MTA_API_KEY || "";
+  if (!key) return [];
+
+  const data = await fetchJson("https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json", {
+    "x-api-key": key
+  });
+  return (data.entity || []).flatMap((entity) => {
+    const alert = entity.alert;
+    const header = translatedText(alert?.header_text);
+    const description = translatedText(alert?.description_text);
+    const start = Number(alert?.active_period?.[0]?.start) * 1000 || Date.now();
+    if (!header || !isRecent(new Date(start).toISOString(), 12)) return [];
+    if (!/delay|suspend|crowd|police|fire|incident|investigation|service change|station/i.test(`${header} ${description}`)) return [];
+
+    return {
+      title: header,
+      type: "Transit alert",
+      time: new Date(start).toISOString(),
+      endTime: alert?.active_period?.[0]?.end ? new Date(Number(alert.active_period[0].end) * 1000).toISOString() : eventEndTime(start, "Transit alert"),
+      place: "MTA subway",
+      source: "MTA alerts",
+      url: "https://new.mta.info/alerts"
+    };
+  }).slice(0, 8);
+}
+
+async function scanVenueCalendars(lat, lon, radius) {
+  const results = await Promise.allSettled(VENUE_CALENDARS.map((calendar) => scanVenueCalendar(calendar, lat, lon, radius)));
+  return dedupeEvents(results.flatMap((result) => (result.status === "fulfilled" ? result.value : [])))
+    .sort((a, b) => scoreEvent(a) - scoreEvent(b))
+    .slice(0, 12);
+}
+
+async function scanVenueCalendar(calendar, lat, lon, radius) {
+  const venueInfo = venue(calendar.name);
+  if (!venueInfo) return [];
+
+  const distance = distanceMiles(lat, lon, venueInfo.lat, venueInfo.lon);
+  if (distance > radius) return [];
+
+  const html = await fetchText(calendar.url);
+  return extractJsonLdEvents(html).flatMap((event) => {
+    const item = Array.isArray(event) ? event[0] : event;
+    const time = parseLocalDate(item.startDate);
+    if (!isNearNow(time)) return [];
+
+    return {
+      title: item.name,
+      type: "Venue calendar",
+      time,
+      endTime: eventEndTime(time, "Venue calendar"),
+      place: calendar.name,
+      source: calendar.source,
+      url: item.url || calendar.url,
+      distance
+    };
+  });
+}
+
 function extractNextData(html) {
   const match = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/);
   return match ? JSON.parse(match[1]) : null;
@@ -260,23 +409,24 @@ function findEvents(value) {
   return Object.values(value).flatMap(findEvents);
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { headers: requestHeaders() });
+async function fetchJson(url, headers = {}) {
+  const response = await fetch(url, { headers: requestHeaders(headers) });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.json();
 }
 
-async function fetchText(url) {
-  const response = await fetch(url, { headers: requestHeaders() });
+async function fetchText(url, headers = {}) {
+  const response = await fetch(url, { headers: requestHeaders(headers) });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.text();
 }
 
-function requestHeaders() {
+function requestHeaders(headers = {}) {
   return {
     accept: "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7",
     "accept-language": "en-US,en;q=0.9",
-    "user-agent": "Mozilla/5.0 screaming-new-york/0.1"
+    "user-agent": "Mozilla/5.0 screaming-new-york/0.1",
+    ...headers
   };
 }
 
@@ -302,6 +452,42 @@ function isNearNow(value) {
   return Number.isFinite(time) && time >= now - 2 * 60 * 60 * 1000 && time <= now + 12 * 60 * 60 * 1000;
 }
 
+function isRecent(value, hours) {
+  const time = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(time) && Date.now() - time <= hours * 60 * 60 * 1000;
+}
+
+function parseRssItems(xml) {
+  return [...xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)].map((match) => {
+    const item = match[0];
+    return {
+      title: decodeXml(xmlTag(item, "title")),
+      link: decodeXml(xmlTag(item, "link")),
+      description: decodeXml(xmlTag(item, "description")),
+      date: decodeXml(xmlTag(item, "pubDate"))
+    };
+  });
+}
+
+function xmlTag(xml, tag) {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? match[1].replace(/^<!\[CDATA\[|\]\]>$/g, "").trim() : "";
+}
+
+function decodeXml(value) {
+  return String(value || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function translatedText(value) {
+  return value?.translation?.find((item) => item.language === "en")?.text || value?.translation?.[0]?.text || "";
+}
+
+
 function dedupeEvents(events) {
   const seen = new Set();
   return events.filter((event) => {
@@ -325,6 +511,10 @@ function localDate(date) {
     month: "2-digit",
     day: "2-digit"
   }).format(date);
+}
+
+function seatGeekDate(time) {
+  return new Date(time).toISOString().slice(0, 19);
 }
 
 function cleanJson(value) {

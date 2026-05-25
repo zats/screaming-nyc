@@ -123,15 +123,15 @@ h3 {
 }
 
 .radar-wrap {
-  min-height: 280px;
+  aspect-ratio: 520 / 280;
   position: relative;
 }
 
 canvas {
+  aspect-ratio: 520 / 280;
   cursor: default;
   display: block;
-  height: 100%;
-  min-height: 280px;
+  height: auto;
   width: 100%;
 }
 
@@ -347,11 +347,6 @@ input {
   .hero {
     gap: 18px;
     min-height: 0;
-  }
-
-  .radar-wrap,
-  canvas {
-    min-height: 230px;
   }
 
   h1 {
