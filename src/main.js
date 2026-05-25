@@ -579,6 +579,7 @@ function drawRadar() {
   const tooltip = document.querySelector("#radarTooltip");
   const { width, height } = canvas;
   let hoveredId = "";
+  let tooltipId = "";
 
   canvas.onmousemove = (event) => {
     const rect = canvas.getBoundingClientRect();
@@ -586,26 +587,10 @@ function drawRadar() {
     const y = ((event.clientY - rect.top) / rect.height) * height;
     const point = radarPoints.find((item) => Math.hypot(item.x - x, item.y - y) < 12);
     hoveredId = point?.id || "";
-
-    if (!tooltip || !point) {
-      if (tooltip) tooltip.hidden = true;
-      return;
-    }
-
-    const source = RADAR_SOURCES[point.id];
-    tooltip.hidden = false;
-    tooltip.style.left = `${(point.x / width) * rect.width}px`;
-    tooltip.style.top = `${(point.y / height) * rect.height}px`;
-    tooltip.innerHTML = `
-      <img alt="" src="${source.favicon}" />
-      <span>${escapeHtml(source.label)}</span>
-      <small>${point.failed ? "failed" : `${point.count} found`}</small>
-    `;
   };
 
   canvas.onmouseleave = () => {
     hoveredId = "";
-    if (tooltip) tooltip.hidden = true;
   };
 
   const paint = (time) => {
@@ -623,6 +608,19 @@ function drawRadar() {
     }
 
     radarPoints = state.sourceDots.map((dot, index) => sourcePoint(dot, index, time));
+    const activePoint = hoveredId
+      ? radarPoints.find((point) => point.id === hoveredId)
+      : cyclePoint(radarPoints, time);
+
+    if (activePoint && tooltip) {
+      updateRadarTooltip(tooltip, activePoint, tooltipId);
+      tooltipId = activePoint.id;
+      drawCallout(ctx, tooltip, activePoint, canvas);
+    } else if (tooltip) {
+      tooltip.hidden = true;
+      tooltipId = "";
+    }
+
     radarPoints.forEach((point) => {
       const source = RADAR_SOURCES[point.id];
       const size = 5 + Math.min(point.count, 12) * 0.22;
@@ -650,6 +648,39 @@ function drawRadar() {
   };
 
   paint(performance.now());
+}
+
+function cyclePoint(points, time) {
+  if (!points.length) return null;
+  return points[Math.floor(time / 2000) % points.length];
+}
+
+function updateRadarTooltip(tooltip, point, tooltipId) {
+  if (tooltipId === point.id && !tooltip.hidden) return;
+
+  const source = RADAR_SOURCES[point.id];
+  tooltip.hidden = false;
+  tooltip.innerHTML = `
+    <img alt="" src="${source.favicon}" />
+    <span>${escapeHtml(source.label)}</span>
+    <small>${point.failed ? "failed" : `${point.count} found`}</small>
+  `;
+}
+
+function drawCallout(ctx, tooltip, point, canvas) {
+  const canvasRect = canvas.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const scaleX = canvas.width / canvasRect.width;
+  const scaleY = canvas.height / canvasRect.height;
+  const startX = (tooltipRect.right - canvasRect.left) * scaleX;
+  const startY = (tooltipRect.top + tooltipRect.height / 2 - canvasRect.top) * scaleY;
+
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(point.x, point.y);
+  ctx.stroke();
 }
 
 function sourcePoint(dot, index, time) {
