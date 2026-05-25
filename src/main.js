@@ -622,7 +622,7 @@ function drawRadar() {
       ctx.stroke();
     }
 
-    radarPoints = state.sourceDots.map((dot, index) => sourcePoint(dot, index, state.sourceDots.length, time));
+    radarPoints = state.sourceDots.map((dot, index) => sourcePoint(dot, index, time));
     radarPoints.forEach((point) => {
       const source = RADAR_SOURCES[point.id];
       const size = 5 + Math.min(point.count, 12) * 0.22;
@@ -652,10 +652,10 @@ function drawRadar() {
   paint(performance.now());
 }
 
-function sourcePoint(dot, index, total, time) {
+function sourcePoint(dot, index, time) {
   const maxRing = Math.min(520, 280) * 0.58;
-  const radius = maxRing * (0.22 + (index % 4) * 0.18);
-  const angle = (index / Math.max(total, 1)) * Math.PI * 2 + time * 0.00012 * (index % 2 ? -1 : 1);
+  const radius = maxRing * (0.16 + index * 0.105);
+  const angle = index * 2.24 + time * 0.00012 * (index % 2 ? -1 : 1);
   const appear = Math.min(1, Math.max(0, (time - dot.loadedAt) / 450));
   return {
     ...dot,
