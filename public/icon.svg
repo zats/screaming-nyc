@@ -1,12 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#f7f7f5"/>
-  <circle cx="256" cy="256" r="190" fill="none" stroke="#d8d8d2" stroke-width="10"/>
-  <circle cx="256" cy="256" r="128" fill="none" stroke="#d8d8d2" stroke-width="10"/>
-  <circle cx="256" cy="256" r="66" fill="none" stroke="#d8d8d2" stroke-width="10"/>
-  <circle cx="256" cy="256" r="22" fill="#111"/>
-  <circle cx="162" cy="205" r="18" fill="#052c4b"/>
-  <circle cx="348" cy="175" r="18" fill="#013670"/>
-  <circle cx="329" cy="337" r="18" fill="#802f18"/>
-  <circle cx="190" cy="335" r="18" fill="#4b2d78"/>
-  <path d="M121 109h270v54H121zM121 383h270v20H121z" fill="#111"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Screaming New York">
+  <rect width="512" height="512" fill="#f4f5f0"/>
+  <circle cx="256" cy="151" r="106" fill="#808183"/>
+  <circle cx="150" cy="334" r="106" fill="#FCCC0A"/>
+  <circle cx="362" cy="334" r="106" fill="#B933AD"/>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="108" font-weight="700" text-anchor="middle" dominant-baseline="middle" text-rendering="geometricPrecision">
+    <text x="256" y="190" fill="#f4f5f0">S</text>
+    <text x="150" y="374" fill="#1d2b36">N</text>
+    <text x="362" y="374" fill="#f4f5f0">Y</text>
+  </g>
 </svg>
