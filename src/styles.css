@@ -614,6 +614,18 @@ input {
   }
 }
 
+@media (min-width: 901px) {
+  .route-bullets {
+    gap: 10px;
+  }
+
+  .route {
+    font-size: 22px;
+    height: 42px;
+    width: 42px;
+  }
+}
+
 @media (max-width: 560px) {
   .shell {
     padding: 12px;
